@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feeding WH</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --bg2: #111620;
+            --card: #161c28;
+            --card2: #1b2235;
+            --border: #252e40;
+            --border-light: #2e3a50;
+            --fg: #e4e8f0;
+            --fg2: #c0c8d8;
+            --muted: #6b7a94;
+            --gold: #d4a843;
+            --gold-dim: rgba(212,168,67,0.12);
+            --gold-glow: rgba(212,168,67,0.25);
+            --green: #22c55e;
+            --green-bg: #0d3320;
+            --green-border: #166534;
+            --red: #ef4444;
+            --red-bg: #3b1111;
+            --red-border: #7f1d1d;
+            --blue: #3b82f6;
+            --radius: 14px;
+            --radius-sm: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed; inset: 0;
+            background:
+                radial-gradient(ellipse 800px 600px at 20% 10%, rgba(212,168,67,0.04), transparent),
+                radial-gradient(ellipse 600px 500px at 80% 90%, rgba(34,197,94,0.03), transparent);
+            pointer-events: none; z-index: 0;
+        }
+
+        .bg-noise {
+            position: fixed; inset: 0; opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            pointer-events: none; z-index: 0;
+        }
+
+        /* === الهيدر === */
+        .app-header {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(11,14,20,0.88);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 28px; height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .logo { display: flex; align-items: center; gap: 12px; }
+
+        .logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--gold), #b8922e);
+            border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; color: #0b0e14; font-weight: 900;
+            box-shadow: 0 2px 12px var(--gold-glow);
+        }
+
+        .logo-text { font-size: 1.3rem; font-weight: 900; color: var(--gold); }
+        .logo-sub { font-size: 0.7rem; color: var(--muted); font-weight: 400; margin-top: -2px; }
+
+        .header-right { display: flex; align-items: center; gap: 10px; }
+
+        .conn-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--red);
+            box-shadow: 0 0 8px rgba(239,68,68,0.5);
+            transition: all 0.3s;
+        }
+
+        .conn-dot.ok {
+            background: var(--green);
+            box-shadow: 0 0 8px rgba(34,197,94,0.5);
+        }
+
+        .conn-label { font-size: 0.72rem; color: var(--muted); font-weight: 600; }
+
+        .header-btn {
+            width: 38px; height: 38px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--muted);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; font-size: 15px;
+        }
+
+        .header-btn:hover { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+
+        /* === التنقل === */
+        .nav-bar {
+            display: flex; gap: 4px;
+            padding: 16px 28px 0;
+            position: relative; z-index: 1;
+        }
+
+        .nav-btn {
+            padding: 10px 20px; border: none; background: transparent;
+            font-family: 'Cairo', sans-serif;
+            font-size: 0.88rem; font-weight: 600;
+            color: var(--muted); cursor: pointer;
+            border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+            transition: all 0.25s; position: relative;
+        }
+
+        .nav-btn.active { color: var(--gold); background: var(--card); }
+
+        .nav-btn.active::after {
+            content: ''; position: absolute;
+            bottom: -1px; left: 0; right: 0; height: 2px;
+            background: var(--gold); border-radius: 2px 2px 0 0;
+        }
+
+        .nav-btn:not(.active):hover { color: var(--fg2); background: rgba(255,255,255,0.03); }
+
+        .nav-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 20px; height: 20px;
+            background: var(--gold); color: #0b0e14;
+            font-size: 0.65rem; font-weight: 800;
+            border-radius: 10px; padding: 0 6px; margin-right: 6px;
+        }
+
+        /* === المحتوى === */
+        .app-content { position: relative; z-index: 1; padding: 20px 28px 60px; }
+
+        .page { display: none; animation: pageIn 0.35s ease-out; }
+        .page.active { display: block; }
+
+        @keyframes pageIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* === كارت === */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .card-head {
+            display: flex; align-items: center; gap: 10px;
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.15);
+        }
+
+        .card-head .ci {
+            width: 32px; height: 32px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 14px;
+        }
+
+        .ci-gold { background: var(--gold-dim); color: var(--gold); }
+        .ci-green { background: rgba(34,197,94,0.12); color: var(--green); }
+        .ci-red { background: rgba(239,68,68,0.12); color: var(--red); }
+        .ci-blue { background: rgba(59,130,246,0.12); color: var(--blue); }
+
+        .card-head h2 { font-size: 1rem; font-weight: 700; }
+        .card-body { padding: 22px; }
+
+        /* === الفورم === */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .form-group { display: flex; flex-direction: column; gap: 7px; }
+        .form-group.full { grid-column: 1 / -1; }
+
+        .form-label {
+            font-size: 0.82rem; font-weight: 600; color: var(--fg2);
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        .form-label i { font-size: 12px; color: var(--muted); }
+
+        .form-input, .form-select {
+            height: 46px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 0 16px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 0.92rem; color: var(--fg);
+            transition: all 0.2s; outline: none;
+            -webkit-appearance: none; appearance: none;
+        }
+
+        .form-select {
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7a94' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 14px center;
+            padding-left: 36px;
+        }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-dim);
+        }
+
+        .form-input::placeholder { color: var(--muted); }
+
+        .status-select.confirm {
+            border-color: var(--green-border) !important;
+            background-color: var(--green-bg) !important;
+            color: var(--green) !important; font-weight: 700;
+        }
+
+        .status-select.disconfirm {
+            border-color: var(--red-border) !important;
+            background-color: var(--red-bg) !important;
+            color: var(--red) !important; font-weight: 700;
+        }
+
+        .form-input-sm {
+            height: 42px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 0 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem; color: var(--fg);
+            transition: all 0.2s; outline: none;
+            direction: ltr; text-align: left;
+        }
+
+        .form-input-sm:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-dim);
+        }
+
+        .form-input-sm::placeholder { color: var(--muted); font-family: 'Cairo', sans-serif; }
+
+        /* === الأزرار === */
+        .btn-row { display: flex; gap: 14px; margin-top: 24px; }
+
+        .btn {
+            flex: 1; height: 52px; border: none;
+            border-radius: var(--radius-sm);
+            font-family: 'Cairo', sans-serif;
+            font-size: 0.95rem; font-weight: 700;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: all 0.25s; position: relative; overflow: hidden;
+        }
+
+        .btn::before {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent);
+            pointer-events: none;
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #166534, #0d3320);
+            color: #4ade80; border: 1px solid #22c55e33;
+            box-shadow: 0 4px 20px rgba(34,197,94,0.15);
+        }
+
+        .btn-green:hover {
+            background: linear-gradient(135deg, #15803d, #14532d);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(34,197,94,0.25);
+        }
+
+        .btn-orange {
+            background: linear-gradient(135deg, #9a3412, #7c2d12);
+            color: #fb923c; border: 1px solid #f9731633;
+            box-shadow: 0 4px 20px rgba(249,115,22,0.15);
+        }
+
+        .btn-orange:hover {
+            background: linear-gradient(135deg, #c2410c, #9a3412);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(249,115,22,0.25);
+        }
+
+        .btn:active { transform: translateY(0) !important; }
+
+        .btn .spinner {
+            display: none; width: 20px; height: 20px;
+            border: 2.5px solid rgba(255,255,255,0.2);
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .btn.loading .spinner { display: block; }
+        .btn.loading .btn-text { display: none; }
+        .btn.loading { pointer-events: none; opacity: 0.7; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #b8922e);
+            color: #0b0e14; font-weight: 800;
+            box-shadow: 0 4px 20px var(--gold-glow);
+        }
+
+        .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(212,168,67,0.35); }
+
+        .btn-ghost {
+            background: var(--bg2); color: var(--muted); border: 1px solid var(--border);
+        }
+
+        .btn-ghost:hover { border-color: var(--fg2); color: var(--fg2); }
+
+        .btn-sm { height: 42px; font-size: 0.85rem; flex: none; padding: 0 20px; }
+
+        /* === المودال === */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            z-index: 200;
+            display: none; align-items: center; justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show { display: flex; }
+
+        .modal {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            width: 100%; max-width: 600px;
+            max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: modalIn 0.3s ease-out;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+        }
+
+        .modal-head h3 { font-size: 1.05rem; font-weight: 700; }
+
+        .modal-close {
+            width: 32px; height: 32px; border-radius: 8px;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+        .modal-body { padding: 22px; }
+
+        .email-preview {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); overflow: hidden;
+        }
+
+        .email-head-bar {
+            padding: 12px 16px; background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 6px;
+        }
+
+        .email-row { display: flex; gap: 8px; font-size: 0.82rem; }
+        .email-row .el { color: var(--muted); min-width: 55px; }
+        .email-row .ev { color: var(--fg2); direction: ltr; text-align: left; }
+
+        .email-body-text {
+            padding: 18px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem; line-height: 1.85;
+            color: var(--fg2); white-space: pre-wrap;
+            direction: ltr; text-align: left;
+        }
+
+        .status-tag {
+            display: inline-block; padding: 3px 14px;
+            border-radius: 6px; font-size: 0.78rem; font-weight: 700;
+        }
+
+        .status-tag.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .status-tag.red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+        .modal-actions .btn { height: 46px; font-size: 0.88rem; }
+
+        /* === إعدادات === */
+        .setup-steps { display: flex; flex-direction: column; gap: 16px; }
+
+        .setup-step {
+            display: flex; gap: 14px; padding: 16px;
+            background: rgba(0,0,0,0.15);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        .setup-num {
+            width: 32px; height: 32px; min-width: 32px;
+            background: var(--gold-dim); color: var(--gold);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.85rem;
+        }
+
+        .setup-step h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+        .setup-step p { font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+        .setup-step a { color: var(--gold); text-decoration: none; font-weight: 600; }
+        .setup-step a:hover { text-decoration: underline; }
+        .setup-step code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; background: rgba(212,168,67,0.1);
+            color: var(--gold); padding: 2px 8px; border-radius: 4px;
+            direction: ltr; display: inline-block;
+        }
+
+        .config-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+        /* === الجدول === */
+        .log-table-wrap { overflow-x: auto; }
+
+        .log-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+
+        .log-table thead th {
+            padding: 12px 16px; font-size: 0.78rem; font-weight: 700;
+            color: var(--muted); text-align: right;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,0,0,0.15);
+            white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        .log-table tbody td {
+            padding: 14px 16px; font-size: 0.85rem;
+            border-bottom: 1px solid var(--border); color: var(--fg2);
+        }
+
+        .log-table tbody tr { transition: background 0.15s; }
+        .log-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+        .log-table .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; direction: ltr; text-align: left;
+        }
+
+        .log-status-pill {
+            display: inline-block; padding: 4px 14px;
+            border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+        }
+
+        .log-status-pill.c { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+        .log-status-pill.d { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+        .log-amount { font-weight: 700; color: var(--gold); direction: ltr; text-align: left; }
+
+        .log-empty { text-align: center; padding: 50px 20px; color: var(--muted); }
+        .log-empty i { font-size: 40px; margin-bottom: 14px; display: block; opacity: 0.3; }
+        .log-empty p { font-size: 0.92rem; }
+
+        /* === Stats === */
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+
+        .stat-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 16px 18px;
+            transition: border-color 0.2s;
+        }
+
+        .stat-card:hover { border-color: var(--border-light); }
+        .stat-label { font-size: 0.75rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+        .stat-value { font-size: 1.6rem; font-weight: 900; }
+        .stat-value.gold { color: var(--gold); }
+        .stat-value.green { color: var(--green); }
+        .stat-value.red { color: var(--red); }
+
+        /* === فلتر === */
+        .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
+        .filter-chip {
+            padding: 6px 16px; border-radius: 20px;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--muted); font-family: 'Cairo', sans-serif;
+            font-size: 0.8rem; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+
+        .filter-chip.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+        .filter-chip:not(.active):hover { border-color: var(--fg2); color: var(--fg2); }
+
+        .btn-delete {
+            width: 30px; height: 30px; border-radius: 6px;
+            border: 1px solid transparent; background: transparent;
+            color: var(--muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; transition: all 0.2s;
+        }
+
+        .btn-delete:hover { border-color: var(--red-border); background: var(--red-bg); color: var(--red); }
+
+        /* === Toast === */
+        .toast-container {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            z-index: 300; display: flex; flex-direction: column; gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 14px 22px; border-radius: var(--radius-sm);
+            font-size: 0.88rem; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+            animation: toastIn 0.35s ease-out, toastOut 0.3s ease-in 3s forwards;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            pointer-events: auto; white-space: nowrap;
+        }
+
+        .toast-success { background: var(--green-bg); border: 1px solid var(--green-border); color: var(--green); }
+        .toast-error { background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red); }
+
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-10px); } }
+
+        /* === تنبيه الإعدادات === */
+        .setup-alert {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 18px; border-radius: var(--radius-sm);
+            background: rgba(245,158,11,0.08);
+            border: 1px solid rgba(245,158,11,0.25);
+            color: #fbbf24; font-size: 0.88rem; margin-bottom: 18px;
+        }
+
+        .setup-alert i { font-size: 18px; flex-shrink: 0; }
+
+        .setup-alert.connected {
+            background: rgba(34,197,94,0.08);
+            border-color: rgba(34,197,94,0.25);
+            color: var(--green);
+        }
+
+        /* ريسبونسف */
+        @media (max-width: 768px) {
+            .app-header { padding: 0 16px; }
+            .nav-bar { padding: 12px 16px 0; overflow-x: auto; }
+            .nav-btn { font-size: 0.8rem; padding: 9px 14px; white-space: nowrap; }
+            .app-content { padding: 16px 16px 40px; }
+            .form-grid { grid-template-columns: 1fr; }
+            .config-grid { grid-template-columns: 1fr; }
+            .btn-row { flex-direction: column; }
+            .stats-row { grid-template-columns: 1fr; }
+            .modal { max-width: 100%; border-radius: 14px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="bg-noise"></div>
+
+    <!-- الهيدر -->
+    <header class="app-header">
+        <div class="logo">
+            <div class="logo-icon">WH</div>
+            <div>
+                <div class="logo-text">Feeding WH</div>
+                <div class="logo-sub">Fund Transfer Confirmation</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="conn-label" id="connLabel">غير متصل</span>
+            <div class="conn-dot" id="connDot"></div>
+            <button class="header-btn" onclick="exportLog()" title="تصدير السجل" aria-label="تصدير السجل">
+                <i class="fas fa-download"></i>
+            </button>
+            <button class="header-btn" onclick="clearAllLog()" title="مسح السجل" aria-label="مسح السجل">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- التنقل -->
+    <nav class="nav-bar" role="tablist">
+        <button class="nav-btn active" onclick="switchPage('send', this)" role="tab" aria-selected="true">
+            <i class="fas fa-paper-plane" style="margin-left:6px;font-size:13px;"></i> إرسال إيميل
+        </button>
+        <button class="nav-btn" onclick="switchPage('log', this)" role="tab" aria-selected="false">
+            <i class="fas fa-history" style="margin-left:6px;font-size:13px;"></i> سجل الإيميلات
+            <span class="nav-badge" id="logCount">0</span>
+        </button>
+        <button class="nav-btn" onclick="switchPage('settings', this)" role="tab" aria-selected="false">
+            <i class="fas fa-cog" style="margin-left:6px;font-size:13px;"></i> الإعدادات
+        </button>
+    </nav>
+
+    <!-- المحتوى -->
+    <main class="app-content">
+
+        <!-- === صفحة الإرسال === -->
+        <div class="page active" id="page-send">
+            <div class="setup-alert" id="sendAlert">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>لم يتم توصيل خدمة الإرسال بعد. اذهب لصفحة <strong>الإعدادات</strong> واتبع الخطوات لتوصيل EmailJS.</span>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div class="ci ci-gold"><i class="fas fa-edit"></i></div>
+                    <h2>بيانات التحويل</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="cashDate">
+                                <i class="fas fa-calendar-alt"></i> تاريخ الاستلام
+                            </label>
+                            <select class="form-select" id="cashDate" aria-label="تاريخ الاستلام"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cashAmount">
+                                <i class="fas fa-coins"></i> المبلغ
+                            </label>
+                            <input type="text" class="form-input" id="cashAmount"
+                                   value="250,000" placeholder="أدخل المبلغ"
+                                   aria-label="المبلغ" inputmode="numeric">
+                        </div>
+                        <div class="form-group full">
+                            <label class="form-label" for="cashStatus">
+                                <i class="fas fa-toggle-on"></i> الحالة
+                            </label>
+                            <select class="form-select status-select confirm" id="cashStatus" aria-label="الحالة">
+                                <option value="Confirm">Confirm</option>
+                                <option value="Disconfirm">Disconfirm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-green" id="btnHany" onclick="prepareSend('hany')">
+                            <span class="spinner"></span>
+                            <i class="fas fa-paper-plane btn-text"></i>
+                            <span class="btn-text">ارسال لهاني بدر</span>
+                        </button>
+                        <button class="btn btn-orange" id="btnAmr" onclick="prepareSend('amr')">
+                            <span class="spinner"></span>
+                            <i class="fas fa-paper-plane btn-text"></i>
+                            <span class="btn-text">ارسال لعمرو الوالي</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === صفحة السجل === -->
+        <div class="page" id="page-log">
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">إجمالي الإيميلات</div>
+                    <div class="stat-value gold" id="statTotal">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Confirm</div>
+                    <div class="stat-value green" id="statConfirm">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Disconfirm</div>
+                    <div class="stat-value red" id="statDisconfirm">0</div>
+                </div>
+            </div>
+            <div class="filter-row">
+                <button class="filter-chip active" onclick="filterLog('all', this)">الكل</button>
+                <button class="filter-chip" onclick="filterLog('Confirm', this)">Confirm</button>
+                <button class="filter-chip" onclick="filterLog('Disconfirm', this)">Disconfirm</button>
+                <button class="filter-chip" onclick="filterLog('hany', this)">هاني بدر</button>
+                <button class="filter-chip" onclick="filterLog('amr', this)">عمرو الوالي</button>
+            </div>
+            <div class="card">
+                <div class="card-head">
+                    <div class="ci ci-green"><i class="fas fa-list"></i></div>
+                    <h2>السجل</h2>
+                </div>
+                <div class="card-body" style="padding:0;">
+                    <div class="log-table-wrap">
+                        <table class="log-table" id="logTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>تاريخ/وقت الإرسال</th>
+                                    <th>المرسل إليه</th>
+                                    <th>البريد</th>
+                                    <th>تاريخ المبلغ</th>
+                                    <th>المبلغ</th>
+                                    <th>الحالة</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="log-empty" id="logEmpty">
+                        <i class="fas fa-inbox"></i>
+                        <p>لا توجد إيميلات مُرسلة بعد</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- === صفحة الإعدادات === -->
+        <div class="page" id="page-settings">
+            <div class="card" style="margin-bottom:20px;">
+                <div class="card-head">
+                    <div class="ci ci-blue"><i class="fas fa-plug"></i></div>
+                    <h2>توصيل خدمة EmailJS</h2>
+                </div>
+                <div class="card-body">
+                    <div class="setup-steps">
+                        <div class="setup-step">
+                            <div class="setup-num">1</div>
+                            <div>
+                                <h4>إنشاء حساب EmailJS</h4>
+                                <p>اذهب إلى <a href="https://www.emailjs.com/" target="_blank" rel="noopener">emailjs.com</a> وسجّل حساب مجاني. الخطة المجانية تسمح بـ 200 إيميل شهرياً.</p>
+                            </div>
+                        </div>
+                        <div class="setup-step">
+                            <div class="setup-num">2</div>
+                            <div>
+                                <h4>إضافة خدمة بريد (Email Service)</h4>
+                                <p>من لوحة التحكم اضغط <strong>Add New Service</strong> واختر <strong>Gmail</strong> وسجّل دخول بحساب جوجل اللي عايز الإيميل يتبعت منه. بعد الاتصال هيديك <code>Service ID</code> (مثلاً: <code>service_xxxxxxx</code>).</p>
+                            </div>
+                        </div>
+                        <div class="setup-step">
+                            <div class="setup-num">3</div>
+                            <div>
+                                <h4>إنشاء قالب (Email Template)</h4>
+                                <p>من <strong>Email Templates</strong> اضغط <strong>Create New Template</strong> وسمّه <code>Feeding WH</code>. في محتوى القالب استخدم المتغيرات التالية:</p>
+                                <p style="direction:ltr;text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.78rem;background:var(--bg);padding:12px;border-radius:8px;margin-top:8px;line-height:1.9;color:var(--fg2);">
+Dear {{to_name}},<br><br>
+I hope this email finds you well.<br><br>
+We kindly request your confirmation regarding the receipt of the fund transfer (replenishment) made from the main treasury to the sub-treasury.<br><br>
+The cash details are as follows:<br><br>
+Cash Date:     {{cash_date}}<br><br>
+Amount Cash: {{amount}}<br><br>
+Status:       {{status_text}}<br><br>
+Please confirm at your earliest convenience.<br><br>
+Best regards,<br>
+Treasury Department</p>
+                                <p style="margin-top:8px;">في <strong>To Email</strong> اكتب: <code>{{to_email}}</code></p>
+                                <p>بعد الحفظ هيديك <code>Template ID</code> (مثلاً: <code>template_xxxxxxx</code>).</p>
+                            </div>
+                        </div>
+                        <div class="setup-step">
+                            <div class="setup-num">4</div>
+                            <div>
+                                <h4>نسخ Public Key</h4>
+                                <p>من <strong>Account > General</strong> هتلاقي <code>Public Key</code> (مثلاً: <code>xxxxxxxxxxxxxx</code>). انسخها.</p>
+                            </div>
+                        </div>
+                        <div class="setup-step">
+                            <div class="setup-num">5</div>
+                            <div>
+                                <h4>أدخل البيانات أدناه واضغط "حفظ وتوصيل"</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div class="ci ci-gold"><i class="fas fa-key"></i></div>
+                    <h2>بيانات الاتصال</h2>
+                </div>
+                <div class="card-body">
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label class="form-label" for="cfgPublic">Public Key</label>
+                            <input type="text" class="form-input-sm" id="cfgPublic"
+                                   placeholder="مثال: xxxxxxxxxxxxxx" aria-label="Public Key">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cfgService">Service ID</label>
+                            <input type="text" class="form-input-sm" id="cfgService"
+                                   placeholder="مثال: service_xxxxxxx" aria-label="Service ID">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="cfgTemplate">Template ID</label>
+                            <input type="text" class="form-input-sm" id="cfgTemplate"
+                                   placeholder="مثال: template_xxxxxxx" aria-label="Template ID">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:20px;">
+                        <button class="btn btn-gold btn-sm" onclick="saveConfig()" style="flex:1;">
+                            <i class="fas fa-plug" style="margin-left:6px;"></i> حفظ وتوصيل
+                        </button>
+                        <button class="btn btn-ghost btn-sm" onclick="testConnection()" style="flex:0.8;">
+                            <i class="fas fa-vial" style="margin-left:6px;"></i> اختبار الاتصال
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- مودال معاينة الإيميل -->
+    <div class="modal-overlay" id="emailModal" role="dialog" aria-modal="true">
+        <div class="modal">
+            <div class="modal-head">
+                <h3 id="modalTitle">معاينة الإيميل</h3>
+                <button class="modal-close" onclick="closeModal()" aria-label="إغلاق">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+                    <span style="font-size:0.85rem;color:var(--muted);">الحالة:</span>
+                    <span class="status-tag" id="modalStatus">Confirm</span>
+                </div>
+                <div class="email-preview">
+                    <div class="email-head-bar">
+                        <div class="email-row">
+                            <span class="el">To:</span>
+                            <span class="ev" id="modalTo"></span>
+                        </div>
+                        <div class="email-row">
+                            <span class="el">Subj:</span>
+                            <span class="ev" id="modalSubject"></span>
+                        </div>
+                    </div>
+                    <div class="email-body-text" id="modalBody"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" onclick="closeModal()" style="flex:0.6;">
+                        <i class="fas fa-arrow-right" style="margin-left:6px;"></i> رجوع
+                    </button>
+                    <button class="btn btn-gold" id="modalSendBtn" style="flex:1;">
+                        <i class="fas fa-paper-plane" style="margin-left:6px;"></i> تأكيد الإرسال
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال مسح -->
+    <div class="modal-overlay" id="clearModal" role="dialog" aria-modal="true">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-head">
+                <h3>مسح السجل</h3>
+                <button class="modal-close" onclick="closeClearModal()" aria-label="إغلاق">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="text-align:center;">
+                <i class="fas fa-exclamation-triangle" style="font-size:36px;color:var(--red);margin-bottom:14px;"></i>
+                <p style="font-size:0.95rem;color:var(--fg2);margin-bottom:20px;">هل أنت متأكد من مسح كل سجل الإيميلات؟</p>
+                <div class="modal-actions" style="justify-content:center;">
+                    <button class="btn btn-ghost" onclick="closeClearModal()" style="flex:0.8;">إلغاء</button>
+                    <button class="btn" style="flex:1;background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);" onclick="confirmClear()">مسح الكل</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ===== بيانات المستلمين =====
+        const RECIPIENTS = {
+            hany: { name: 'Mr. Hany Badr', email: 'h.badr@vndro.com', label: 'هاني بدر' },
+            amr:  { name: 'Mr. Amr El-Waly', email: 'a.elwaly@vndro.com', label: 'عمرو الوالي' }
+        };
+
+        // ===== حالة التطبيق =====
+        let emailLog = JSON.parse(localStorage.getItem('feedingWH_log') || '[]');
+        let currentFilter = 'all';
+        let pendingSend = null;
+        let emailjsConnected = false;
+
+        // ===== تهيئة التواريخ =====
+        (function initDates() {
+            const sel = document.getElementById('cashDate');
+            for (let d = 1; d <= 31; d++) {
+                const opt = document.createElement('option');
+                opt.value = d + '/7/2026';
+                opt.textContent = d + '/7/2026';
+                if (d === 5) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        })();
+
+        // ===== تنسيق المبلغ =====
+        document.getElementById('cashAmount').addEventListener('input', function() {
+            let raw = this.value.replace(/[^0-9]/g, '');
+            this.value = raw ? Number(raw).toLocaleString('en-US') : '';
+        });
+
+        // ===== لون الحالة =====
+        document.getElementById('cashStatus').addEventListener('change', function() {
+            this.classList.remove('confirm', 'disconfirm');
+            this.classList.add(this.value === 'Confirm' ? 'confirm' : 'disconfirm');
+        });
+
+        // ===== تبديل الصفحات =====
+        function switchPage(page, btn) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
+            document.getElementById('page-' + page).classList.add('active');
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
+            if (page === 'log') renderLog();
+            if (page === 'settings') loadConfig();
+        }
+
+        // ===== تحميل الإعدادات =====
+        function loadConfig() {
+            const cfg = JSON.parse(localStorage.getItem('feedingWH_cfg') || '{}');
+            if (cfg.publicKey)  document.getElementById('cfgPublic').value  = cfg.publicKey;
+            if (cfg.serviceId)  document.getElementById('cfgService').value  = cfg.serviceId;
+            if (cfg.templateId) document.getElementById('cfgTemplate').value = cfg.templateId;
+        }
+
+        // ===== حفظ الإعدادات وتوصيل EmailJS =====
+        function saveConfig() {
+            const publicKey   = document.getElementById('cfgPublic').value.trim();
+            const serviceId   = document.getElementById('cfgService').value.trim();
+            const templateId  = document.getElementById('cfgTemplate').value.trim();
+
+            if (!publicKey || !serviceId || !templateId) {
+                showToast('يرجى ملء كل الحقول الثلاثة', 'error');
+                return;
+            }
+
+            // حفظ في localStorage
+            localStorage.setItem('feedingWH_cfg', JSON.stringify({ publicKey, serviceId, templateId }));
+
+            // توصيل EmailJS
+            try {
+                emailjs.init(publicKey);
+                emailjsConnected = true;
+                updateConnectionUI(true);
+                showToast('تم التوصيل بنجاح! يمكنك الآن إرسال إيميلات حقيقية.', 'success');
+            } catch (e) {
+                emailjsConnected = false;
+                updateConnectionUI(false);
+                showToast('حدث خطأ في التوصيل: ' + e.message, 'error');
+            }
+        }
+
+        // ===== اختبار الاتصال =====
+        function testConnection() {
+            const cfg = JSON.parse(localStorage.getItem('feedingWH_cfg') || '{}');
+            if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) {
+                showToast('أدخل البيانات أولاً ثم اضغط "حفظ وتوصيل"', 'error');
+                return;
+            }
+
+            try {
+                emailjs.init(cfg.publicKey);
+                emailjs.send(cfg.serviceId, cfg.templateId, {
+                    to_name: 'Test User',
+                    to_email: cfg.testEmail || 'test@test.com',
+                    cash_date: '1/1/2026',
+                    amount: '0',
+                    status_text: 'TEST - Connection Check',
+                    subject: 'Feeding WH - Test Connection'
+                }).then(function() {
+                    showToast('تم إرسال إيميل اختبار بنجاح! راجع البريد.', 'success');
+                    emailjsConnected = true;
+                    updateConnectionUI(true);
+                }).catch(function(err) {
+                    showToast('فشل الإرسال: ' + (err.text || err.message || 'تأكد من البيانات'), 'error');
+                    emailjsConnected = false;
+                    updateConnectionUI(false);
+                });
+            } catch (e) {
+                showToast('خطأ: ' + e.message, 'error');
+            }
+        }
+
+        // ===== تحديث واجهة الاتصال =====
+        function updateConnectionUI(connected) {
+            const dot = document.getElementById('connDot');
+            const label = document.getElementById('connLabel');
+            const alert = document.getElementById('sendAlert');
+
+            if (connected) {
+                dot.classList.add('ok');
+                label.textContent = 'متصل';
+                label.style.color = 'var(--green)';
+                alert.className = 'setup-alert connected';
+                alert.innerHTML = '<i class="fas fa-check-circle"></i><span>تم توصيل خدمة EmailJS بنجاح. الإيميلات ستُرسل لحساب جوجل المرتبط.</span>';
+            } else {
+                dot.classList.remove('ok');
+                label.textContent = 'غير متصل';
+                label.style.color = 'var(--muted)';
+                alert.className = 'setup-alert';
+                alert.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>لم يتم توصيل خدمة الإرسال بعد. اذهب لصفحة <strong>الإعدادات</strong> واتبع الخطوات لتوصيل EmailJS.</span>';
+            }
+        }
+
+        // ===== تحضير الإرسال =====
+        function prepareSend(recipientKey) {
+            const date = document.getElementById('cashDate').value;
+            const amountRaw = document.getElementById('cashAmount').value.replace(/[^0-9]/g, '');
+            const status = document.getElementById('cashStatus').value;
+
+            if (!date) { showToast('يرجى اختيار تاريخ الاستلام', 'error'); return; }
+            if (!amountRaw || Number(amountRaw) <= 0) { showToast('يرجى إدخال مبلغ صحيح', 'error'); return; }
+
+            // التحقق من الاتصال
+            const cfg = JSON.parse(localStorage.getItem('feedingWH_cfg') || '{}');
+            if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) {
+                showToast('اذهب للإعدادات ووصل خدمة EmailJS أولاً', 'error');
+                return;
+            }
+
+            // تأكد من init
+            if (!emailjsConnected) {
+                emailjs.init(cfg.publicKey);
+                emailjsConnected = true;
+                updateConnectionUI(true);
+            }
+
+            const recipient = RECIPIENTS[recipientKey];
+            const formattedAmount = Number(amountRaw).toLocaleString('en-US');
+
+            const subject = 'Fund Transfer ' + status.toUpperCase() + ' - ' + date;
+            const statusText = status === 'Confirm'
+                ? 'CONFIRMED - We confirm the fund transfer has been processed.'
+                : 'DISCONFIRMED - The fund transfer has NOT been confirmed. Please review.';
+
+            const body = 'Dear ' + recipient.name + ',\n\n'
+                + 'I hope this email finds you well.\n\n'
+                + 'We kindly request your confirmation regarding the receipt of the fund transfer (replenishment) made from the main treasury to the sub-treasury.\n\n'
+                + 'The cash details are as follows:\n\n'
+                + 'Cash Date:     ' + date + '\n\n'
+                + 'Amount Cash: ' + formattedAmount + '\n\n'
+                + 'Status:       ' + statusText + '\n\n'
+                + 'Please confirm at your earliest convenience.\n\n'
+                + 'Best regards,\n'
+                + 'Treasury Department';
+
+            // عرض المودال
+            document.getElementById('modalTo').textContent = recipient.email;
+            document.getElementById('modalSubject').textContent = subject;
+            document.getElementById('modalBody').textContent = body;
+            document.getElementById('modalTitle').textContent = 'إرسال إلى ' + recipient.label;
+
+            const statusEl = document.getElementById('modalStatus');
+            statusEl.textContent = status;
+            statusEl.className = 'status-tag ' + (status === 'Confirm' ? 'green' : 'red');
+
+            pendingSend = {
+                key: recipientKey,
+                recipient: recipient,
+                date: date,
+                amount: formattedAmount,
+                amountRaw: amountRaw,
+                status: status,
+                statusText: statusText,
+                subject: subject,
+                cfg: cfg
+            };
+
+            document.getElementById('emailModal').classList.add('show');
+            document.getElementById('modalSendBtn').onclick = confirmSend;
+        }
+
+        // ===== تأكيد الإرسال الحقيقي =====
+        function confirmSend() {
+            if (!pendingSend) return;
+
+            const sendBtn = document.getElementById('modalSendBtn');
+            const appBtn = document.getElementById(pendingSend.key === 'hany' ? 'btnHany' : 'btnAmr');
+
+            sendBtn.innerHTML = '<span class="spinner" style="display:block;width:18px;height:18px;border:2.5px solid rgba(11,14,20,0.2);border-top-color:#0b0e14;border-radius:50%;animation:spin 0.7s linear infinite;"></span> جاري الإرسال...';
+            sendBtn.disabled = true;
+            appBtn.classList.add('loading');
+            appBtn.disabled = true;
+
+            const p = pendingSend;
+
+            // إرسال حقيقي عبر EmailJS
+            emailjs.send(p.cfg.serviceId, p.cfg.templateId, {
+                to_name: p.recipient.name,
+                to_email: p.recipient.email,
+                cash_date: p.date,
+                amount: p.amount,
+                status_text: p.statusText,
+                subject: p.subject
+            }).then(function() {
+                // نجاح الإرسال
+                const now = new Date();
+                const sendDate = now.getDate() + '/'
+                    + (now.getMonth() + 1) + '/'
+                    + now.getFullYear() + ' '
+                    + padZero(now.getHours()) + ':'
+                    + padZero(now.getMinutes());
+
+                emailLog.push({
+                    id: Date.now(),
+                    rowNum: emailLog.length + 1,
+                    sendDate: sendDate,
+                    recipientName: p.recipient.name,
+                    recipientLabel: p.recipient.label,
+                    recipientKey: p.key,
+                    email: p.recipient.email,
+                    cashDate: p.date,
+                    amount: p.amount,
+                    status: p.status
+                });
+
+                saveLog();
+                updateBadge();
+                resetButtons(sendBtn, appBtn);
+                closeModal();
+                showToast('تم إرسال الإيميل إلى ' + p.recipient.label + ' بنجاح!', 'success');
+                pendingSend = null;
+
+            }).catch(function(err) {
+                // فشل الإرسال
+                resetButtons(sendBtn, appBtn);
+                showToast('فشل الإرسال: ' + (err.text || err.message || 'تأكد من إعدادات EmailJS'), 'error');
+                emailjsConnected = false;
+                updateConnectionUI(false);
+            });
+        }
+
+        function resetButtons(sendBtn, appBtn) {
+            sendBtn.innerHTML = '<i class="fas fa-paper-plane" style="margin-left:6px;"></i> تأكيد الإرسال';
+            sendBtn.disabled = false;
+            appBtn.classList.remove('loading');
+            appBtn.disabled = false;
+        }
+
+        // ===== إغلاق المودال =====
+        function closeModal() {
+            document.getElementById('emailModal').classList.remove('show');
+            pendingSend = null;
+        }
+
+        function closeClearModal() {
+            document.getElementById('clearModal').classList.remove('show');
+        }
+
+        document.getElementById('emailModal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        document.getElementById('clearModal').addEventListener('click', function(e) {
+            if (e.target === this) closeClearModal();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { closeModal(); closeClearModal(); }
+        });
+
+        // ===== السجل =====
+        function saveLog() { localStorage.setItem('feedingWH_log', JSON.stringify(emailLog)); }
+        function updateBadge() { document.getElementById('logCount').textContent = emailLog.length; }
+
+        function renderLog() {
+            const tbody = document.getElementById('logBody');
+            const emptyEl = document.getElementById('logEmpty');
+
+            document.getElementById('statTotal').textContent = emailLog.length;
+            document.getElementById('statConfirm').textContent = emailLog.filter(e => e.status === 'Confirm').length;
+            document.getElementById('statDisconfirm').textContent = emailLog.filter(e => e.status === 'Disconfirm').length;
+
+            let filtered = emailLog;
+            if (currentFilter === 'Confirm' || currentFilter === 'Disconfirm') {
+                filtered = emailLog.filter(e => e.status === currentFilter);
+            } else if (currentFilter === 'hany' || currentFilter === 'amr') {
+                filtered = emailLog.filter(e => e.recipientKey === currentFilter);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyEl.style.display = 'block';
+                return;
+            }
+
+            emptyEl.style.display = 'none';
+            const reversed = [...filtered].reverse();
+
+            tbody.innerHTML = reversed.map((entry, i) => {
+                const sc = entry.status === 'Confirm' ? 'c' : 'd';
+                return '<tr>'
+                    + '<td>' + (emailLog.length - i) + '</td>'
+                    + '<td>' + entry.sendDate + '</td>'
+                    + '<td>' + entry.recipientLabel + '</td>'
+                    + '<td class="mono">' + entry.email + '</td>'
+                    + '<td>' + entry.cashDate + '</td>'
+                    + '<td class="log-amount">' + entry.amount + '</td>'
+                    + '<td><span class="log-status-pill ' + sc + '">' + entry.status + '</span></td>'
+                    + '<td><button class="btn-delete" onclick="deleteEntry(' + entry.id + ')" title="حذف" aria-label="حذف"><i class="fas fa-trash"></i></button></td>'
+                    + '</tr>';
+            }).join('');
+        }
+
+        function filterLog(filter, btn) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            renderLog();
+        }
+
+        function deleteEntry(id) {
+            emailLog = emailLog.filter(e => e.id !== id);
+            emailLog.forEach((e, i) => e.rowNum = i + 1);
+            saveLog(); updateBadge(); renderLog();
+            showToast('تم حذف السجل', 'success');
+        }
+
+        function clearAllLog() {
+            if (emailLog.length === 0) { showToast('السجل فارغ بالفعل', 'error'); return; }
+            document.getElementById('clearModal').classList.add('show');
+        }
+
+        function confirmClear() {
+            emailLog = []; saveLog(); updateBadge(); renderLog(); closeClearModal();
+            showToast('تم مسح كل السجلات', 'success');
+        }
+
+        // ===== تصدير CSV =====
+        function exportLog() {
+            if (emailLog.length === 0) { showToast('لا توجد بيانات للتصدير', 'error'); return; }
+            const headers = ['#', 'تاريخ/وقت الإرسال', 'المرسل إليه', 'البريد', 'تاريخ المبلغ', 'المبلغ', 'الحالة'];
+            const rows = emailLog.map((e, i) => [i + 1, e.sendDate, e.recipientLabel, e.email, e.cashDate, e.amount, e.status]);
+            let csv = '\uFEFF' + headers.join(',') + '\n';
+            rows.forEach(r => { csv += r.map(c => '"' + c + '"').join(',') + '\n'; });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Feeding_WH_Log_' + new Date().toISOString().slice(0, 10) + '.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('تم تصدير السجل', 'success');
+        }
+
+        // ===== Toast =====
+        function showToast(msg, type) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.innerHTML = '<i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + '"></i> ' + msg;
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3500);
+        }
+
+        function padZero(n) { return n < 10 ? '0' + n : '' + n; }
+
+        // ===== تهيئة عند التحميل =====
+        (function init() {
+            updateBadge();
+            // محاولة إعادة التوصيل التلقائي لو كان فيه إعدادات محفوظة
+            const cfg = JSON.parse(localStorage.getItem('feedingWH_cfg') || '{}');
+            if (cfg.publicKey && cfg.serviceId && cfg.templateId) {
+                try {
+                    emailjs.init(cfg.publicKey);
+                    emailjsConnected = true;
+                    updateConnectionUI(true);
+                } catch (e) {
+                    updateConnectionUI(false);
+                }
+            } else {
+                updateConnectionUI(false);
+            }
+        })();
+    </script>
+</body>
+</html>
