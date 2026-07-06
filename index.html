@@ -872,17 +872,24 @@
     var pendingSend = null;
     var isEmailConnected = false;
 
-    // ===== التواريخ =====
-    (function() {
-        var sel = document.getElementById('cashDate');
-        for (var d = 1; d <= 31; d++) {
-            var opt = document.createElement('option');
-            opt.value = d + '/7/2026';
-            opt.textContent = d + '/7/2026';
-            if (d === 5) opt.selected = true;
-            sel.appendChild(opt);
-        }
-    })();
+   // ===== التواريخ تلقائية حسب الشهر الحالي =====
+    var sel = document.getElementById('cashDate');
+    var now = new Date();
+    var currentMonth = now.getMonth() + 1;
+    var currentYear = now.getFullYear();
+    var today = now.getDate();
+
+    // عدد أيام الشهر
+    var daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    for (var d = 1; d <= daysInMonth; d++) {
+        var opt = document.createElement('option');
+        opt.value = d + '/' + currentMonth + '/' + currentYear;
+        opt.textContent = d + '/' + currentMonth + '/' + currentYear;
+        if (d === today) opt.selected = true;
+        sel.appendChild(opt);
+    }
+})();
 
     // ===== تنسيق المبلغ =====
     document.getElementById('cashAmount').addEventListener('input', function() {
