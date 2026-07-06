@@ -448,6 +448,18 @@
         .log-status-pill.d { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
         .log-status-pill.p { background: rgba(107,122,148,0.12); color: var(--muted); border: 1px solid var(--border-light); }
         .response-name { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
+        .rt-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+        .rt-btn {
+            padding: 4px 10px; border-radius: 6px;
+            font-size: 0.7rem; font-weight: 700;
+            border: 1px solid; cursor: pointer;
+            font-family: 'Cairo', sans-serif;
+            white-space: nowrap; transition: all 0.15s;
+        }
+        .rt-btn.ok { color: var(--green); border-color: var(--green-border); background: rgba(34,197,94,0.08); }
+        .rt-btn.ok:hover { background: rgba(34,197,94,0.2); }
+        .rt-btn.no { color: var(--red); border-color: var(--red-border); background: rgba(239,68,68,0.08); }
+        .rt-btn.no:hover { background: rgba(239,68,68,0.2); }
         .log-amount { font-weight: 700; color: var(--gold); direction: ltr; text-align: left; }
 
         /* ===== شاشة تأكيد الاستلام (للطرف الآخر عبر الرابط) ===== */
@@ -1285,12 +1297,18 @@
             var rsHtml;
             if (rs === 'confirmed') {
                 rsHtml = '<span class="log-status-pill c">تم التأكيد</span>'
-                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>';
+                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>'
+                    + '<div class="rt-actions"><button class="rt-btn no" onclick="respondFromLogTable(' + entry.id + ', \'disputed\', this)">تغيير لعدم الاستلام</button></div>';
             } else if (rs === 'disputed') {
                 rsHtml = '<span class="log-status-pill d">لم يتم الاستلام</span>'
-                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>';
+                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>'
+                    + '<div class="rt-actions"><button class="rt-btn ok" onclick="respondFromLogTable(' + entry.id + ', \'confirmed\', this)">تغيير لتأكيد</button></div>';
             } else {
-                rsHtml = '<span class="log-status-pill p">بانتظار الرد</span>';
+                rsHtml = '<span class="log-status-pill p">بانتظار الرد</span>'
+                    + '<div class="rt-actions">'
+                    + '<button class="rt-btn ok" onclick="respondFromLogTable(' + entry.id + ', \'confirmed\', this)">✓ تأكيد ' + entry.recipientLabel + '</button>'
+                    + '<button class="rt-btn no" onclick="respondFromLogTable(' + entry.id + ', \'disputed\', this)">✕ رفض</button>'
+                    + '</div>';
             }
             return '<tr>'
                 + '<td>' + num + '</td>'
@@ -1455,12 +1473,28 @@
         var card = document.getElementById('confirmCard');
         card.innerHTML = '<div class="cc-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>جاري تسجيل ردك...</h2>';
 
-        // نجيب أحدث نسخة من السجل المشترك الأول عشان مانكتبش فوق تحديثات حديثة
-        fetchLog().then(function() {
+        applyTransferResponse(transferId, decision).then(function(entry) {
+            renderConfirmationScreen(entry, transferId);
+        });
+    }
+
+    // من جدول السجل مباشرة (بدل ما ندخل من رابط الإيميل)
+    function respondFromLogTable(transferId, decision, btn) {
+        var row = btn.closest('tr');
+        if (row) row.style.opacity = '0.5';
+
+        applyTransferResponse(transferId, decision).then(function() {
+            renderLog();
+        });
+    }
+
+    // الوظيفة المشتركة: تجيب أحدث نسخة من السجل، تحدث الرد، وترفعه للسجل المشترك
+    function applyTransferResponse(transferId, decision) {
+        return fetchLog().then(function() {
             var entry = emailLog.find(function(e) { return e.id === transferId; });
             if (!entry) {
-                renderConfirmationScreen(null, transferId);
-                return;
+                showToast('لم يتم العثور على هذا السجل', 'error');
+                return null;
             }
 
             var now = new Date();
@@ -1474,9 +1508,9 @@
             entry.respondedBy = entry.recipientLabel;
             entry.respondedAt = respondedAt;
 
-            pushLog().then(function() {
-                renderConfirmationScreen(entry, transferId);
-                showToast(decision === 'confirmed' ? 'تم تأكيد الاستلام، شكرًا لك' : 'تم تسجيل ردك بعدم الاستلام', decision === 'confirmed' ? 'success' : 'error');
+            return pushLog().then(function() {
+                showToast(decision === 'confirmed' ? ('تم تأكيد الاستلام بواسطة ' + entry.recipientLabel) : ('تم تسجيل عدم الاستلام بواسطة ' + entry.recipientLabel), decision === 'confirmed' ? 'success' : 'error');
+                return entry;
             });
         });
     }
