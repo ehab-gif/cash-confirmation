@@ -416,7 +416,7 @@
 
         .log-table-wrap { overflow-x: auto; }
 
-        .log-table { width: 100%; border-collapse: collapse; min-width: 750px; }
+        .log-table { width: 100%; border-collapse: collapse; min-width: 950px; }
 
         .log-table thead th {
             padding: 12px 14px; font-size: 0.75rem; font-weight: 700;
@@ -657,6 +657,9 @@
             <button class="header-btn" onclick="exportLog()" title="تصدير CSV" aria-label="تصدير">
                 <i class="fas fa-download"></i>
             </button>
+            <button class="header-btn" onclick="clearAllLog()" title="مسح كل السجل" aria-label="مسح الكل" style="color: var(--red);">
+                <i class="fas fa-trash"></i>
+            </button>
         </div>
     </header>
 
@@ -791,6 +794,7 @@
                                     <th>الحالة</th>
                                     <th>تأكيد الاستلام</th>
                                     <th>وقت الإرسال</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="logBody"></tbody>
@@ -1298,6 +1302,7 @@
                 + '<td><span class="log-status-pill ' + sc + '">' + entry.status + '</span></td>'
                 + '<td>' + rsHtml + '</td>'
                 + '<td style="font-size:0.78rem;color:var(--muted);white-space:nowrap;">' + entry.sendDate + '</td>'
+                + '<td><button class="btn-delete" onclick="requestDeleteEntry(' + entry.id + ')" title="حذف هذا السجل"><i class="fas fa-trash"></i></button></td>'
                 + '</tr>';
         }).join('');
     }
@@ -1309,20 +1314,48 @@
         renderLog();
     }
 
-    // ===== مسح الكل =====
+    // ===== مسح الكل / حذف سجل واحد =====
+    var clearModalMode = 'all';
+    var pendingDeleteId = null;
+
     function clearAllLog() {
         if (emailLog.length === 0) { showToast('السجل فارغ', 'error'); return; }
+        clearModalMode = 'all';
+        pendingDeleteId = null;
+        document.querySelector('#clearModal h3').textContent = 'مسح السجل المشترك';
+        document.querySelector('#clearModal .modal-body p').textContent = 'سيتم مسح السجل المشترك بالكامل عند الطرفين. متأكد؟';
+        document.querySelector('#clearModal .modal-actions .btn:last-child').textContent = 'مسح الكل';
+        document.getElementById('clearModal').classList.add('show');
+    }
+
+    function requestDeleteEntry(id) {
+        clearModalMode = 'single';
+        pendingDeleteId = id;
+        document.querySelector('#clearModal h3').textContent = 'حذف هذا السجل';
+        document.querySelector('#clearModal .modal-body p').textContent = 'سيتم حذف هذا السجل من السجل المشترك عند الطرفين. متأكد؟';
+        document.querySelector('#clearModal .modal-actions .btn:last-child').textContent = 'حذف';
         document.getElementById('clearModal').classList.add('show');
     }
 
     function confirmClear() {
-        emailLog = [];
-        localStorage.setItem('feedingWH_log', '[]');
-        pushLog();
-        updateBadge();
-        renderLog();
-        closeClearModal();
-        showToast('تم مسح السجل المشترك', 'success');
+        if (clearModalMode === 'single' && pendingDeleteId !== null) {
+            emailLog = emailLog.filter(function(e) { return e.id !== pendingDeleteId; });
+            pendingDeleteId = null;
+            localStorage.setItem('feedingWH_log', JSON.stringify(emailLog));
+            pushLog();
+            updateBadge();
+            renderLog();
+            closeClearModal();
+            showToast('تم حذف السجل', 'success');
+        } else {
+            emailLog = [];
+            localStorage.setItem('feedingWH_log', '[]');
+            pushLog();
+            updateBadge();
+            renderLog();
+            closeClearModal();
+            showToast('تم مسح السجل المشترك', 'success');
+        }
     }
 
     // ===== تصدير CSV =====
