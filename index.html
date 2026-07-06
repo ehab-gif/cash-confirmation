@@ -446,7 +446,43 @@
 
         .log-status-pill.c { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
         .log-status-pill.d { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+        .log-status-pill.p { background: rgba(107,122,148,0.12); color: var(--muted); border: 1px solid var(--border-light); }
+        .response-name { font-size: 0.72rem; color: var(--muted); margin-top: 3px; }
         .log-amount { font-weight: 700; color: var(--gold); direction: ltr; text-align: left; }
+
+        /* ===== شاشة تأكيد الاستلام (للطرف الآخر عبر الرابط) ===== */
+        .confirm-screen {
+            position: fixed; inset: 0; z-index: 500;
+            background: var(--bg);
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .confirm-screen.show { display: flex; }
+        .confirm-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 18px; width: 100%; max-width: 480px;
+            padding: 32px 28px; text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .confirm-card .cc-icon {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: var(--gold-dim); color: var(--gold);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; margin: 0 auto 16px;
+        }
+        .confirm-card h2 { font-size: 1.15rem; margin-bottom: 6px; }
+        .confirm-card p.cc-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+        .confirm-details {
+            background: var(--bg2); border: 1px solid var(--border);
+            border-radius: var(--radius-sm); padding: 16px; margin-bottom: 22px;
+            text-align: right; font-size: 0.88rem; line-height: 2;
+        }
+        .confirm-details b { color: var(--fg2); }
+        .confirm-btn-row { display: flex; gap: 12px; }
+        .confirm-btn-row .btn { height: 50px; }
+        .cc-result-icon.ok { color: var(--green); }
+        .cc-result-icon.no { color: var(--red); }
 
         .sender-tag {
             display: inline-block; padding: 2px 10px;
@@ -460,7 +496,7 @@
         .log-empty i { font-size: 40px; margin-bottom: 14px; display: block; opacity: 0.3; }
         .log-empty p { font-size: 0.92rem; }
 
-        .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stats-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
 
         .stat-card {
             background: var(--card); border: 1px solid var(--border);
@@ -722,6 +758,10 @@
                     <div class="stat-label">من هاني</div>
                     <div class="stat-value cyan" id="statFromHany">0</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-label">بانتظار رد الطرف الآخر</div>
+                    <div class="stat-value" id="statPending" style="color: var(--muted);">0</div>
+                </div>
             </div>
             <div class="filter-row">
                 <button class="filter-chip active" onclick="filterLog('all', this)">الكل</button>
@@ -749,6 +789,7 @@
                                     <th>تاريخ المبلغ</th>
                                     <th>المبلغ</th>
                                     <th>الحالة</th>
+                                    <th>تأكيد الاستلام</th>
                                     <th>وقت الإرسال</th>
                                 </tr>
                             </thead>
@@ -829,6 +870,13 @@
 
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- شاشة تأكيد الاستلام - تظهر لما الطرف التاني يفتح الرابط من الإيميل -->
+    <div class="confirm-screen" id="confirmScreen">
+        <div class="confirm-card" id="confirmCard">
+            <!-- يتم بناء المحتوى ديناميكيًا -->
+        </div>
+    </div>
+
     <script>
     /*
      * ================================================================
@@ -889,7 +937,6 @@
         if (d === today) opt.selected = true;
         sel.appendChild(opt);
     }
-})();
 
     // ===== تنسيق المبلغ =====
     document.getElementById('cashAmount').addEventListener('input', function() {
@@ -1045,6 +1092,9 @@
         var recipient = RECIPIENTS[recipientKey];
         var formattedAmount = Number(amountRaw).toLocaleString('en-US');
 
+        var transferId = Date.now();
+        var confirmLink = window.location.origin + window.location.pathname + '?confirm=' + transferId;
+
         var subject = 'Fund Transfer ' + status.toUpperCase() + ' - ' + date;
         var statusText = status === 'Confirm'
             ? 'CONFIRMED - We confirm the fund transfer has been processed.'
@@ -1057,7 +1107,8 @@
             + 'Cash Date:     ' + date + '\n\n'
             + 'Amount Cash: ' + formattedAmount + '\n\n'
             + 'Status:       ' + statusText + '\n\n'
-            + 'Please confirm at your earliest convenience.\n\n'
+            + 'To confirm or dispute receipt of this transfer, please click the link below:\n'
+            + confirmLink + '\n\n'
             + 'Best regards,\n'
             + sender.name;
 
@@ -1072,6 +1123,8 @@
         statusEl.className = 'status-tag ' + (status === 'Confirm' ? 'green' : 'red');
 
         pendingSend = {
+            transferId: transferId,
+            confirmLink: confirmLink,
             senderKey: senderKey,
             sender: sender,
             recipientKey: recipientKey,
@@ -1108,7 +1161,8 @@
             cash_date: p.date,
             amount: p.amount,
             status_text: p.statusText,
-            subject: p.subject
+            subject: p.subject,
+            confirm_link: p.confirmLink
         }).then(function() {
             // نجاح — حفظ في السجل المشترك
             var now = new Date();
@@ -1120,7 +1174,7 @@
                 + padZero(now.getSeconds());
 
             emailLog.push({
-                id: Date.now(),
+                id: p.transferId,
                 sendDate: sendDate,
                 senderKey: p.senderKey,
                 senderLabel: p.sender.label,
@@ -1130,7 +1184,10 @@
                 recipientEmail: p.recipient.email,
                 cashDate: p.date,
                 amount: p.amount,
-                status: p.status
+                status: p.status,
+                responseStatus: 'pending',
+                respondedBy: null,
+                respondedAt: null
             });
 
             // حفظ محلي أولاً (سريع)
@@ -1191,6 +1248,7 @@
         document.getElementById('statConfirm').textContent = emailLog.filter(function(e) { return e.status === 'Confirm'; }).length;
         document.getElementById('statDisconfirm').textContent = emailLog.filter(function(e) { return e.status === 'Disconfirm'; }).length;
         document.getElementById('statFromHany').textContent = emailLog.filter(function(e) { return e.senderKey === 'hany'; }).length;
+        document.getElementById('statPending').textContent = emailLog.filter(function(e) { return (e.responseStatus || 'pending') === 'pending'; }).length;
 
         var filtered = emailLog;
 
@@ -1219,6 +1277,17 @@
             var sc = entry.status === 'Confirm' ? 'c' : 'd';
             var senderClass = entry.senderKey === 'hany' ? 'hany' : 'amr';
             var num = emailLog.length - i;
+            var rs = entry.responseStatus || 'pending';
+            var rsHtml;
+            if (rs === 'confirmed') {
+                rsHtml = '<span class="log-status-pill c">تم التأكيد</span>'
+                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>';
+            } else if (rs === 'disputed') {
+                rsHtml = '<span class="log-status-pill d">لم يتم الاستلام</span>'
+                    + '<div class="response-name">' + (entry.respondedBy || '') + ' · ' + (entry.respondedAt || '') + '</div>';
+            } else {
+                rsHtml = '<span class="log-status-pill p">بانتظار الرد</span>';
+            }
             return '<tr>'
                 + '<td>' + num + '</td>'
                 + '<td><span class="sender-tag ' + senderClass + '">' + entry.senderLabel + '</span></td>'
@@ -1227,6 +1296,7 @@
                 + '<td>' + entry.cashDate + '</td>'
                 + '<td class="log-amount">' + entry.amount + '</td>'
                 + '<td><span class="log-status-pill ' + sc + '">' + entry.status + '</span></td>'
+                + '<td>' + rsHtml + '</td>'
                 + '<td style="font-size:0.78rem;color:var(--muted);white-space:nowrap;">' + entry.sendDate + '</td>'
                 + '</tr>';
         }).join('');
@@ -1258,9 +1328,10 @@
     // ===== تصدير CSV =====
     function exportLog() {
         if (emailLog.length === 0) { showToast('لا توجد بيانات', 'error'); return; }
-        var headers = ['#', 'المرسل', 'بريد المرسل', 'المرسل إليه', 'بريد المستلم', 'تاريخ المبلغ', 'المبلغ', 'الحالة', 'وقت الإرسال'];
+        var headers = ['#', 'المرسل', 'بريد المرسل', 'المرسل إليه', 'بريد المستلم', 'تاريخ المبلغ', 'المبلغ', 'الحالة', 'حالة التأكيد', 'أكّد بواسطة', 'وقت التأكيد', 'وقت الإرسال'];
         var rows = emailLog.map(function(e, i) {
-            return [i + 1, e.senderLabel, e.senderEmail, e.recipientLabel, e.recipientEmail, e.cashDate, e.amount, e.status, e.sendDate];
+            var rsLabel = (e.responseStatus === 'confirmed') ? 'تم التأكيد' : (e.responseStatus === 'disputed') ? 'لم يتم الاستلام' : 'بانتظار الرد';
+            return [i + 1, e.senderLabel, e.senderEmail, e.recipientLabel, e.recipientEmail, e.cashDate, e.amount, e.status, rsLabel, e.respondedBy || '', e.respondedAt || '', e.sendDate];
         });
         var csv = '\uFEFF' + headers.join(',') + '\n';
         rows.forEach(function(r) { csv += r.map(function(c) { return '"' + c + '"'; }).join(',') + '\n'; });
@@ -1289,6 +1360,94 @@
         document.getElementById('logCount').textContent = emailLog.length;
     }
 
+    // ===== شاشة تأكيد الاستلام (لما حد يفتح الرابط من الإيميل) =====
+    function checkForConfirmationRequest() {
+        var params = new URLSearchParams(window.location.search);
+        var confirmParam = params.get('confirm');
+        if (!confirmParam) return;
+
+        var transferId = Number(confirmParam);
+        var entry = emailLog.find(function(e) { return e.id === transferId; });
+        renderConfirmationScreen(entry, transferId);
+        document.getElementById('confirmScreen').classList.add('show');
+    }
+
+    function renderConfirmationScreen(entry, transferId) {
+        var card = document.getElementById('confirmCard');
+
+        if (!entry) {
+            card.innerHTML =
+                '<div class="cc-icon" style="background:var(--red-bg);color:var(--red);"><i class="fas fa-times-circle"></i></div>'
+                + '<h2>الرابط غير صالح</h2>'
+                + '<p class="cc-sub">لم يتم العثور على هذا التحويل في السجل، أو تم مسح السجل المشترك.</p>'
+                + '<button class="btn btn-ghost" style="height:46px;" onclick="window.location.href = window.location.pathname;">'
+                + '<i class="fas fa-arrow-right" style="margin-left:6px;"></i> العودة للتطبيق</button>';
+            return;
+        }
+
+        var rs = entry.responseStatus || 'pending';
+
+        var detailsHtml =
+            '<div class="confirm-details">'
+            + '<div><b>من:</b> ' + entry.senderLabel + '</div>'
+            + '<div><b>إلى:</b> ' + entry.recipientLabel + '</div>'
+            + '<div><b>تاريخ الاستلام:</b> ' + entry.cashDate + '</div>'
+            + '<div><b>المبلغ:</b> ' + entry.amount + '</div>'
+            + '<div><b>الحالة المرسلة:</b> ' + entry.status + '</div>'
+            + '</div>';
+
+        if (rs === 'pending') {
+            card.innerHTML =
+                '<div class="cc-icon"><i class="fas fa-hand-holding-dollar"></i></div>'
+                + '<h2>تأكيد استلام التحويل</h2>'
+                + '<p class="cc-sub">من فضلك أكّد إذا كنت استلمت هذا التحويل بالفعل</p>'
+                + detailsHtml
+                + '<div class="confirm-btn-row">'
+                + '<button class="btn btn-green" onclick="respondToTransfer(' + transferId + ', \'confirmed\')"><i class="fas fa-check"></i> أؤكد الاستلام</button>'
+                + '<button class="btn" style="background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);" onclick="respondToTransfer(' + transferId + ', \'disputed\')"><i class="fas fa-times"></i> لم يتم الاستلام</button>'
+                + '</div>';
+        } else {
+            var already = rs === 'confirmed'
+                ? '<div class="cc-icon"><i class="fas fa-check-circle cc-result-icon ok"></i></div><h2>تم تسجيل التأكيد بالفعل</h2>'
+                : '<div class="cc-icon"><i class="fas fa-times-circle cc-result-icon no"></i></div><h2>تم تسجيل الرفض بالفعل</h2>';
+            card.innerHTML = already
+                + '<p class="cc-sub">بواسطة ' + (entry.respondedBy || '') + ' في ' + (entry.respondedAt || '') + '</p>'
+                + detailsHtml
+                + '<button class="btn btn-ghost" style="height:46px;" onclick="respondToTransfer(' + transferId + ', \'' + (rs === 'confirmed' ? 'disputed' : 'confirmed') + '\')">'
+                + '<i class="fas fa-rotate"></i> تغيير الرد</button>';
+        }
+    }
+
+    function respondToTransfer(transferId, decision) {
+        var card = document.getElementById('confirmCard');
+        card.innerHTML = '<div class="cc-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>جاري تسجيل ردك...</h2>';
+
+        // نجيب أحدث نسخة من السجل المشترك الأول عشان مانكتبش فوق تحديثات حديثة
+        fetchLog().then(function() {
+            var entry = emailLog.find(function(e) { return e.id === transferId; });
+            if (!entry) {
+                renderConfirmationScreen(null, transferId);
+                return;
+            }
+
+            var now = new Date();
+            var respondedAt = padZero(now.getDate()) + '/'
+                + padZero(now.getMonth() + 1) + '/'
+                + now.getFullYear() + ' '
+                + padZero(now.getHours()) + ':'
+                + padZero(now.getMinutes());
+
+            entry.responseStatus = decision;
+            entry.respondedBy = entry.recipientLabel;
+            entry.respondedAt = respondedAt;
+
+            pushLog().then(function() {
+                renderConfirmationScreen(entry, transferId);
+                showToast(decision === 'confirmed' ? 'تم تأكيد الاستلام، شكرًا لك' : 'تم تسجيل ردك بعدم الاستلام', decision === 'confirmed' ? 'success' : 'error');
+            });
+        });
+    }
+
     function padZero(n) { return n < 10 ? '0' + n : '' + n; }
 
     // ===== التهيئة عند التحميل =====
@@ -1307,7 +1466,9 @@
         }
 
         // تحميل السجل المشترك
-        fetchLog();
+        fetchLog().then(function() {
+            checkForConfirmationRequest();
+        });
     })();
     </script>
 </body>
